@@ -7,7 +7,7 @@ import torchvision.transforms as transforms
 
 
 class SimpleCNN(nn.Module):
-    def __init__(self, num_classes=25, num_filters_conv1=32, num_filters_conv2=64, fc1_neurons=128, image_size=64):
+    def __init__(self, num_classes=8, num_filters_conv1=32, num_filters_conv2=64, fc1_neurons=128, image_size=64):
         super().__init__()
         self.conv_layer1 = nn.Sequential(
             nn.Conv2d(1, num_filters_conv1, kernel_size=3, padding=1),
@@ -107,7 +107,7 @@ def load_data(id):
     train_size = int(train_ratio * size)
     test_size = size - train_size
 
-    generator = torch.Generator().manual_seed(42)
+    generator = torch.Generator().manual_seed(112)
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size], generator=generator)
 
     train_dataset, test_dataset = mappingLable(id, train_dataset, test_dataset)
@@ -120,10 +120,10 @@ def load_data(id):
 
 def mappingLable(id, train, test):
     #Mapped Lables
-    lable_map1 = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5}
-    lable_map2 = {0: 6, 1: 7, 2: 8, 3: 9, 4: 10, 5: 11}
-    lable_map3 = {0: 12, 1: 13, 2: 14, 3: 15, 4: 16, 5: 17, 6: 18}
-    lable_map4 = {0: 19, 1: 20, 2: 21, 3: 22, 4: 23, 5: 24, 6:25}
+    lable_map1 = {0: 0, 1: 1}
+    lable_map2 = {0: 2, 1: 3}
+    lable_map3 = {0: 4, 1: 5}
+    lable_map4 = {0: 6, 1: 7}
 
     if id == 1:
         trainset = MappedDataset(train, label_map=lable_map1)
