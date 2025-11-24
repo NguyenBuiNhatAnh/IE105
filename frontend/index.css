@@ -1,17 +1,18 @@
 body {
     font-family: monospace;
-    background: #111;
-    color: #0f0;
+    background: black;
+    color: rgb(52, 243, 52);
     padding: 20px;
+    font-size: 15px;
 }
 
-#log {
+.screen {
     white-space: pre-wrap;
     overflow-y: scroll;
     height: 400px;
     border: 1px solid #444;
     padding: 10px;
-    background: #000;
+    background: black;
     width: 50%;
 }
 

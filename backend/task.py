@@ -4,10 +4,44 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
+import torch.nn.functional as F
+import torch.optim as optim
 
+class ImprovedCNN(nn.Module):
+    def __init__(self, num_classes=8):
+        super().__init__()
+        # Conv block 1
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
+        # Conv block 2
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
+        # Conv block 3
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
+        
+        # Fully connected layers
+        self.fc1 = nn.Linear(128*8*8, 256)  # 64x64 -> 32 ->16 ->8 after pooling
+        self.dropout = nn.Dropout(0.5)
+        self.fc2 = nn.Linear(256, num_classes)
+
+        self.pool = nn.MaxPool2d(2, 2)
+    
+    def forward(self, x):
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = self.pool(x)
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = self.pool(x)
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = self.pool(x)
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
 
 class SimpleCNN(nn.Module):
-    def __init__(self, num_classes=8, num_filters_conv1=32, num_filters_conv2=64, fc1_neurons=128, image_size=64):
+    def __init__(self, num_classes=12, num_filters_conv1=32, num_filters_conv2=64, fc1_neurons=128, image_size=64):
         super().__init__()
         self.conv_layer1 = nn.Sequential(
             nn.Conv2d(1, num_filters_conv1, kernel_size=3, padding=1),
@@ -39,6 +73,7 @@ def train(model, trainLoader, epochs, lr, device):
     model.to(device)
     lossFn = torch.nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+    # optimizer = optim.Adam(model.parameters(), lr=0.001)
     model.train()
     for epoch in range(epochs):
         for inputs, lables in trainLoader:
@@ -87,9 +122,12 @@ class MappedDataset(torch.utils.data.Dataset):
 
 def load_data(id):
 
-    transform = transforms.Compose([transforms.Grayscale(), 
-                                transforms.Resize((64, 64)), 
-                                transforms.ToTensor()])
+    transform = transforms.Compose([
+    transforms.Grayscale(),
+    transforms.Resize((64,64)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5])
+])
     
     if(id == 1):
         dataset = torchvision.datasets.ImageFolder(root='../client1', transform=transform)
@@ -107,7 +145,7 @@ def load_data(id):
     train_size = int(train_ratio * size)
     test_size = size - train_size
 
-    generator = torch.Generator().manual_seed(112)
+    generator = torch.Generator().manual_seed(42)
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size], generator=generator)
 
     train_dataset, test_dataset = mappingLable(id, train_dataset, test_dataset)
@@ -120,10 +158,10 @@ def load_data(id):
 
 def mappingLable(id, train, test):
     #Mapped Lables
-    lable_map1 = {0: 0, 1: 1}
-    lable_map2 = {0: 2, 1: 3}
-    lable_map3 = {0: 4, 1: 5}
-    lable_map4 = {0: 6, 1: 7}
+    lable_map1 = {0: 0, 1: 1, 2: 2, 3: 3}
+    lable_map2 = {0: 4, 1: 5, 2: 6, 3: 7}
+    lable_map3 = {0: 8, 1: 9}
+    lable_map4 = {0: 10, 1: 11}
 
     if id == 1:
         trainset = MappedDataset(train, label_map=lable_map1)

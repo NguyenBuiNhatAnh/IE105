@@ -6,6 +6,8 @@ import sys
 from queue import Queue, Empty
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
+from fastapi import Path
+from typing import Dict
 
 app = FastAPI()
 
@@ -110,3 +112,95 @@ async def stop_server():
                 return JSONResponse({"status": "error", "detail": str(e)}, status_code=500)
         else:
             return JSONResponse({"status": "not running"})
+        
+
+# Khởi tạo các biến/lock/app nếu chưa có
+process_lock = threading.Lock()
+# Sử dụng Dict để lưu trữ các process theo client_id
+running_processes: Dict[int, subprocess.Popen] = {} 
+
+@app.websocket("/ws/client/{client_id}/logs")
+async def websocket_endpoint(
+    websocket: WebSocket, 
+    client_id: int = Path(..., description="ID của client để chạy")
+):
+    await websocket.accept()
+    q = Queue()
+    python_exe = sys.executable
+
+    # Hàm chạy client.py với ID
+    def run_client_and_stream(client_id: int):
+        # Tạo key duy nhất cho process này
+        process_key = client_id
+        
+        with process_lock:
+            # 1. Kiểm tra nếu process với ID này đã chạy
+            if process_key in running_processes and running_processes[process_key].poll() is None:
+                q.put(f"[CLIENT_ID_{client_id}_ALREADY_RUNNING]")
+                return
+            
+            # 2. Khởi tạo process mới
+            process = subprocess.Popen(
+                [python_exe, "client.py", str(client_id)], # <-- THAY ĐỔI CHÍNH Ở ĐÂY
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+            running_processes[process_key] = process # Lưu process vào Dict
+
+        # Đọc stdout của tiến trình
+        try:
+            for line in process.stdout:
+                if line:
+                    q.put(line.rstrip("\n"))
+        except Exception:
+            pass
+        finally:
+            q.put(f"[CLIENT_ID_{client_id}_STOPPED]")
+            # Dọn dẹp process khi nó dừng
+            with process_lock:
+                if process_key in running_processes:
+                    del running_processes[process_key]
+
+    # Start thread (daemon) để chạy client.py
+    threading.Thread(target=run_client_and_stream, args=(client_id,), daemon=True).start()
+
+    try:
+        while True:
+            try:
+                line = await asyncio.get_event_loop().run_in_executor(
+                    None, lambda: q.get(timeout=0.2)
+                )
+            except Empty:
+                await asyncio.sleep(0)
+                continue
+
+            try:
+                await websocket.send_text(line)
+            except Exception:
+                break
+
+            if line.endswith("_STOPPED]"):
+                break
+
+    except asyncio.CancelledError:
+        # Xử lý khi WebSocket bị cancel: Kill tiến trình con
+        with process_lock:
+            process = running_processes.get(client_id)
+            if process and process.poll() is None:
+                try:
+                    process.terminate()
+                    process.wait(timeout=3)
+                except Exception:
+                    try:
+                        process.kill()
+                    except Exception:
+                        pass
+                finally:
+                    # Dọn dẹp process
+                    if client_id in running_processes:
+                        del running_processes[client_id]
+        raise
+    finally:
+        await websocket.close()

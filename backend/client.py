@@ -3,7 +3,7 @@
 import sys
 import torch
 import flwr as fl
-from task import SimpleCNN, load_data, train as train_fn, test as test_fn 
+from task import SimpleCNN, ImprovedCNN, load_data, train as train_fn, test as test_fn 
 
 class FlowerClient(fl.client.NumPyClient):
     def __init__(self, partition_id):
@@ -26,7 +26,7 @@ class FlowerClient(fl.client.NumPyClient):
             self.model,
             self.trainloader,
             epochs=int(config.get("local_epochs", 1)),
-            lr=float(config.get("lr", 0.01)),
+            lr=float(config.get("lr", 0.011)),
             device=self.device,
         )
         return self.get_parameters(config), len(self.trainloader.dataset), {}
@@ -35,7 +35,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
         loss, acc = test_fn(self.model, self.valloader, self.device)
         round_num = config.get("server_round", "Unknown")
-        print(f"[Client {self.partition_id}] Round {round_num} - Evaluation - Loss: {loss:.4f}, Accuracy: {acc:.2f}%")
+        print(f"[Client {self.partition_id}] Round {round_num} - Evaluation - Loss: {loss:.4f}, Accuracy: {acc:.2f}%", flush=True)
         return float(loss), len(self.valloader.dataset), {"accuracy": float(acc)}
 
 

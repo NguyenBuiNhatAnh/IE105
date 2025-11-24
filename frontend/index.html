@@ -1,14 +1,33 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Log Viewer</title>
     <link rel="stylesheet" href="index.css">
 </head>
+
 <body>
     <button onclick="startServer()">Start Server</button>
     <button onclick="stopServer()">Stop Server</button>
-    <div id="log"></div>
+    <div class="screen" id="server-log"></div>
+    <div class="screen" id="client-log-1"></div>
+    <div class="screen" id="client-log-2"></div>
+    <div class="screen" id="client-log-3"></div>
+    <div class="screen" id="client-log-4"></div>
+    <div>
+        <button onclick="startClient(1)">Start Client 1</button>
+        <button onclick="startClient(2)">Start Client 2</button>
+        <button onclick="startClient(3)">Start Client 3</button>
+        <button onclick="startClient(4)">Start Client 4</button>
+    </div>
+    <div>
+        <button>View Client 1</button>
+        <button>View Client 2</button>
+        <button>View Client 3</button>
+        <button>View Client 4</button>
+    </div>
 
     <script src="./index.js"></script>
 </body>
+
 </html>
