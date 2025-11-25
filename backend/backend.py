@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.responses import JSONResponse
 from fastapi import Path
 from typing import Dict
+import json
 
 app = FastAPI()
 
@@ -204,3 +205,35 @@ async def websocket_endpoint(
         raise
     finally:
         await websocket.close()
+
+accclient = []
+wsclient1acc = None
+
+@app.post("/client/metric")
+async def recieve(data: dict):
+    global accclient, wsclient1acc
+    accclient.append(data)
+
+    # Nếu WebSocket đang kết nối thì gửi dữ liệu
+    if wsclient1acc is not None:
+        try:
+            await wsclient1acc.send_text(json.dumps(data))
+        except:
+            wsclient1acc = None  # reset nếu WS đóng
+
+    return {"status": "ok"}
+
+
+@app.websocket("/ws/client/acc")
+async def sendacc(websocket: WebSocket):
+    global wsclient1acc
+    await websocket.accept()
+    wsclient1acc = websocket
+    print("WebSocket Client 1 connected")
+
+    try:
+        while True:
+            await websocket.receive_text()  # giữ kết nối
+    except:
+        wsclient1acc = None
+        print("WebSocket Client 1 disconnected")

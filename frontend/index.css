@@ -1,9 +1,5 @@
 body {
     font-family: monospace;
-    background: black;
-    color: rgb(52, 243, 52);
-    padding: 20px;
-    font-size: 15px;
 }
 
 .screen {
@@ -14,9 +10,30 @@ body {
     padding: 10px;
     background: black;
     width: 50%;
+    color: rgb(52, 243, 52);
 }
 
 button {
     margin-bottom: 10px;
     padding: 10px 20px;
+}
+
+.section {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.section.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.chart-container {
+  width: 50%;
+  /* Chiều rộng biểu đồ */
+  margin: 20px auto;
+  border: 1px solid #ccc;
+  padding: 10px;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
 }

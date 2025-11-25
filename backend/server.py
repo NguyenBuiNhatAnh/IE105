@@ -26,7 +26,7 @@ def evaluate_config(server_round: int):
 # Khởi động server
 fl.server.start_server(
     server_address="localhost:8080",
-    config=fl.server.ServerConfig(num_rounds=200),
+    config=fl.server.ServerConfig(num_rounds=50),
     strategy=FedAvg(
         initial_parameters=initial_parameters,
         min_available_clients=2,

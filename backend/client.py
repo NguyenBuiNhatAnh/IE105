@@ -3,7 +3,8 @@
 import sys
 import torch
 import flwr as fl
-from task import SimpleCNN, ImprovedCNN, load_data, train as train_fn, test as test_fn 
+from task import SimpleCNN, ImprovedCNN, load_data, train as train_fn, test as test_fn
+import requests
 
 class FlowerClient(fl.client.NumPyClient):
     def __init__(self, partition_id):
@@ -35,7 +36,21 @@ class FlowerClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
         loss, acc = test_fn(self.model, self.valloader, self.device)
         round_num = config.get("server_round", "Unknown")
+
         print(f"[Client {self.partition_id}] Round {round_num} - Evaluation - Loss: {loss:.4f}, Accuracy: {acc:.2f}%", flush=True)
+
+        if(self.partition_id == 1):
+            try:
+                requests.post(
+                    "http://localhost:8000/client/metric",
+                    json={
+                        "round": round_num,
+                        "acc": float(acc)
+                    }
+                )
+            except Exception as e:
+                print("[Client] Failed to POST acc:", e)
+
         return float(loss), len(self.valloader.dataset), {"accuracy": float(acc)}
 
 
