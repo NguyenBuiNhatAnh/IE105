@@ -10,6 +10,24 @@
 <body>
     <button onclick="startServer()">Start Server</button>
     <button onclick="stopServer()">Stop Server</button>
+    <div style="display: flex; gap: 50px; margin-bottom: 20px;">
+        <div>
+            <label for="num_round">Num Round</label>
+            <input id="num_round" type="number" value="100" min="1">
+        </div>
+        <div>
+            <label for="local">Local Epochs</label>
+            <input id="local" type="number" value="1" min="1">
+        </div>
+        <div>
+            <label for="lr">Learning rate</label>
+            <input id="lr" type="number" value="0.01" min="0" step="any">
+        </div>
+        <div>
+            <label for="seed">Random seed</label>
+            <input id="seed" type="number" value="42" min="1">
+        </div>
+    </div>
     <div>
         <button onclick="startClient(1)">Start Client 1</button>
         <button onclick="startClient(2)">Start Client 2</button>
@@ -17,37 +35,33 @@
         <button onclick="startClient(4)">Start Client 4</button>
     </div>
     <div>
-        <button onclick="connectToWsclient1()">View Client 1</button>
-        <button>View Client 2</button>
-        <button>View Client 3</button>
-        <button>View Client 4</button>
+        <button onclick="connectToWsClient(1)">View Client 1</button>
+        <button onclick="connectToWsClient(2)">View Client 2</button>
+        <button onclick="connectToWsClient(3)">View Client 3</button>
+        <button onclick="connectToWsClient(4)">View Client 4</button>
     </div>
     <div class="screen" id="server-log"></div>
     <div style="display: flex;">
         <div class="screen" id="client-log-1"></div>
-        <div class="chart-container">
-            <canvas id="lossChart"></canvas>
-        </div>
+        <div class="screen" id="client-log-2"></div>
+        <div class="screen" id="client-log-3"></div>
+        <div class="screen" id="client-log-4"></div>
     </div>
     <div style="display: flex;">
-        <div class="screen" id="client-log-2"></div>
+        <div class="chart-container">
+            <canvas id="lossChart-1"></canvas>
+        </div>
         <div class="chart-container">
             <canvas id="lossChart-2"></canvas>
         </div>
-    </div>
-    <div style="display: flex;">
-        <div class="screen" id="client-log-3"></div>
         <div class="chart-container">
             <canvas id="lossChart-3"></canvas>
         </div>
-    </div>
-    <div style="display: flex;">
-        <div class="screen" id="client-log-4"></div>
         <div class="chart-container">
             <canvas id="lossChart-4"></canvas>
         </div>
     </div>
-
+    <h1 style="text-align: center; font-size: 50px;">Compare Session</h1>
     <script src="./index.js"></script>
 </body>
 

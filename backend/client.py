@@ -37,9 +37,12 @@ class FlowerClient(fl.client.NumPyClient):
         self.set_parameters(parameters)
         loss, acc = test_fn(self.model, self.valloader, self.device)
         round_num = config.get("server_round", "Unknown")
+        session_id = config.get("session_id")
+        seed = self.randomseed
 
-        print(f"[Client {self.partition_id}] Random Seed: {self.randomseed} Round {round_num} - Evaluation - Loss: {loss:.4f}, Accuracy: {acc:.2f}%", flush=True)
+        print(f"[Client {self.partition_id}] Random Seed: {seed} Round {round_num} - Evaluation - Loss: {loss:.4f}, Accuracy: {acc:.2f}%", flush=True)
 
+        # Gửi thông tin cũ (chỉ acc)
         if self.partition_id in [1,2,3,4]:
             try:
                 requests.post(
@@ -48,12 +51,31 @@ class FlowerClient(fl.client.NumPyClient):
                         "client_id": self.partition_id,
                         "round": round_num,
                         "acc": float(acc)
-                    }
+                    },
+                    timeout=5
                 )
             except Exception as e:
                 print("[Client] Failed to POST acc:", e)
 
+            # Gửi thêm thông tin đầy đủ vào endpoint lưu ClientSubmit
+            if session_id is not None:
+                try:
+                    requests.post(
+                        "http://localhost:8000/client/submit",
+                        json={
+                            "session_id": session_id,
+                            "client_id": self.partition_id,
+                            "round_number": round_num,
+                            "accuracy": float(acc),
+                            "seed": seed
+                        },
+                        timeout=5
+                    )
+                except Exception as e:
+                    print("[Client] Failed to POST full submit:", e)
+
         return float(loss), len(self.valloader.dataset), {"accuracy": float(acc)}
+
 
 
 if __name__ == "__main__":

@@ -1,19 +1,14 @@
 import flwr as fl
 from flwr.server.strategy import FedAvg
 from task import SimpleCNN, ImprovedCNN
-import argparse 
-
+import argparse
+import requests
 
 # Khởi tạo mô hình toàn cục
 model = SimpleCNN()
 initial_parameters = fl.common.ndarrays_to_parameters(
     [val.cpu().numpy() for _, val in model.state_dict().items()]
 )
-
-def evaluate_config(server_round: int):
-    return {
-        "server_round": server_round,
-    }
 
 if __name__ == "__main__":
     # 1. Định nghĩa và đọc đối số dòng lệnh
@@ -64,6 +59,32 @@ if __name__ == "__main__":
     print(f"  - lr = {global_lr}", flush=True)
     print(f"  - local_epochs = {local_epochs}", flush=True)
 
+    try:
+        response = requests.post(
+            "http://localhost:8000/sessions/",
+            json={
+                "num_rounds": num_rounds,
+                "lr": global_lr,
+                "local_epochs": local_epochs
+            },
+            timeout=5
+        )
+        if response.status_code in [200, 201]:
+            session_data = response.json()
+            print(f"[SERVER] Created session in DB: {session_data}")
+            session_id = session_data["id"]  # lưu lại để client submit
+        else:
+            print(f"[SERVER] Failed to create session: {response.text}")
+            session_id = None
+    except Exception as e:
+        print(f"[SERVER] Error calling backend API: {e}")
+        session_id = None
+
+    def evaluate_config(server_round: int):
+        return {
+            "server_round": server_round,
+            "session_id": session_id
+        }
     # 2. Khởi động server
     fl.server.start_server(
         server_address="localhost:8080",

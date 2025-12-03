@@ -13,7 +13,19 @@ function startServer() {
         serverWs.close();
     }
 
-    serverWs = new WebSocket("ws://localhost:8000/ws/logs");
+    const numround = document.getElementById("num_round").value;
+    const local = document.getElementById("local").value;
+    const lr = document.getElementById("lr").value;
+
+    const params = new URLSearchParams({
+        num_rounds: numround,
+        lr: lr,
+        local_epochs: local //
+    }).toString();
+
+    const websocketUrl = `ws://localhost:8000/ws/logs?${params}`;
+
+    serverWs = new WebSocket(websocketUrl);
 
     serverWs.onmessage = (event) => {
         log.textContent += event.data + "\n";
@@ -62,9 +74,7 @@ function startClient(clientId) {
         return;
     }
 
-    const endpoint = `ws://localhost:8000/ws/client/${clientId}/logs`;
-
-    clientLogDiv.textContent += `\n[CLIENT ${clientId} START] Đang kết nối đến ${endpoint}...\n`;
+    clientLogDiv.textContent += `\n[CLIENT ${clientId} START]`
 
     // 1. Kiểm tra nếu Client này đã có kết nối đang mở
     if (clientWs[clientId] && clientWs[clientId].readyState === WebSocket.OPEN) {
@@ -76,6 +86,9 @@ function startClient(clientId) {
     if (clientWs[clientId]) {
         clientWs[clientId].close();
     }
+
+    const seed = document.getElementById("seed").value;
+    const endpoint = `ws://localhost:8000/ws/client/${clientId}/logs?seed=${seed}`;
 
     // 2. Tạo kết nối WebSocket mới
     const ws = new WebSocket(endpoint);
@@ -101,52 +114,60 @@ function startClient(clientId) {
 }
 
 
-const clientAcc = [];       // Lưu toàn bộ dữ liệu acc nhận từ server
-let myLossChart = null;     // Chart instance
-let wscl1 = null;
+const clientAcc = {
+    client1: [],
+    client2: [],
+    client3: [],
+    client4: []
+};
 
-// Hàm kết nối WebSocket
-function connectToWsclient1() {
-    wscl1 = new WebSocket("ws://localhost:8000/ws/client/acc");
+const charts = {
+    client1: null,
+    client2: null,
+    client3: null,
+    client4: null
+};
 
-    wscl1.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+const wsClients = {}; // giữ WebSocket cho từng client
 
-        // data có dạng: { round: 1, acc: 85.0 }
-        clientAcc.push([data.round, data.acc]);
-
-        console.log("New ACC data:", data);
-        console.log("Ngu người")
-
-        // Tự động update chart mỗi lần nhận data
-        drawChart();
-    };
-
-    wscl1.onerror = () => console.log("WS error");
-    wscl1.onclose = () => console.log("WS closed");
-}
-
-
-// Hàm vẽ biểu đồ
-function drawChart() {
-    console.log("VẼ");
-    // Hủy biểu đồ cũ nếu tồn tại
-    if (myLossChart) {
-        myLossChart.destroy();
+function connectToWsClient(clientId) {
+    if (wsClients[clientId]) {
+        wsClients[clientId].close();
     }
 
-    const ctx = document.getElementById('lossChart').getContext('2d');
+    wsClients[clientId] = new WebSocket(`ws://localhost:8000/ws/client${clientId}/acc`);
 
-    // Tạo labels & values từ clientAcc
-    const labels = clientAcc.map(item => `Round ${item[0]}`);
-    const dataPoints = clientAcc.map(item => item[1]);
+    wsClients[clientId].onmessage = (event) => {
+        const data = JSON.parse(event.data); // server gửi **chỉ mảng client đó**
 
-    myLossChart = new Chart(ctx, {
+        clientAcc[`client${clientId}`] = []; // reset
+        data.forEach(item => {
+            clientAcc[`client${clientId}`].push([item.round, item.acc]);
+        });
+
+        drawChart(clientId);
+    };
+
+    wsClients[clientId].onerror = () => console.log(`WS error client${clientId}`);
+    wsClients[clientId].onclose = () => console.log(`WS closed client${clientId}`);
+}
+
+function drawChart(clientId) {
+    const ctx = document.getElementById(`lossChart-${clientId}`).getContext('2d');
+
+    if (charts[`client${clientId}`]) {
+        charts[`client${clientId}`].destroy();
+    }
+
+    const labels = clientAcc[`client${clientId}`].map(item => `Round ${item[0]}`);
+    const dataPoints = clientAcc[`client${clientId}`].map(item => item[1]);
+
+    charts[`client${clientId}`] = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Accuracy Client 1',
+                label: `Accuracy Client ${clientId}`,
                 data: dataPoints,
                 borderColor: 'rgb(0, 102, 255)',
                 backgroundColor: 'rgba(0, 102, 255, 0.2)',
@@ -158,14 +179,8 @@ function drawChart() {
         options: {
             responsive: true,
             scales: {
-                x: {
-                    title: { display: true, text: 'Round' }
-                },
-                y: {
-                    title: { display: true, text: 'Accuracy (%)' },
-                    beginAtZero: true,
-                    suggestedMax: 100
-                }
+                x: { title: { display: true, text: 'Round' } },
+                y: { title: { display: true, text: 'Accuracy (%)' }, beginAtZero: true, suggestedMax: 100 }
             }
         }
     });

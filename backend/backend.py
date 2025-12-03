@@ -9,7 +9,12 @@ from fastapi.responses import JSONResponse
 from fastapi import Path
 from typing import Dict
 import json
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+import crud, models, schemas
+from database import Base, engine, get_db
 
+Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # Biến toàn cục giữ tiến trình server.py
@@ -246,3 +251,22 @@ async def sendacc(websocket: WebSocket, client_id: str):
         wsclientacc[client_id] = None
         print(f"WebSocket {client_id} disconnected")
 
+@app.post("/sessions/", response_model=schemas.TrainingSessionOut)
+def create_training_session(session: schemas.TrainingSessionCreate, db: Session = Depends(get_db)):
+    """
+    Tạo session mới
+    """
+    return crud.create_session(db, session)
+
+@app.post("/client/submit")
+def create_client_submit(submit: schemas.ClientSubmitCreate, db: Session = Depends(get_db)):
+    db_item = crud.create_submit(db, submit)
+    return {
+        "id": db_item.id,
+        "session_id": db_item.session_id,
+        "client_id": db_item.client_id,
+        "round_number": db_item.round_number,
+        "accuracy": db_item.accuracy,
+        "seed": db_item.seed,
+        "timestamp": db_item.timestamp.isoformat()  # convert datetime -> str
+    }
