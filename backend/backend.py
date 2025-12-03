@@ -13,9 +13,17 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 import crud, models, schemas
 from database import Base, engine, get_db
+from fastapi.middleware.cors import CORSMiddleware
 
 Base.metadata.create_all(bind=engine)
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],      # hoặc origin FE của bạn
+    allow_credentials=True,
+    allow_methods=["*"],      # QUAN TRỌNG: Cho phép OPTIONS
+    allow_headers=["*"],
+)
 
 # Biến toàn cục giữ tiến trình server.py
 server_process = None
@@ -270,3 +278,22 @@ def create_client_submit(submit: schemas.ClientSubmitCreate, db: Session = Depen
         "seed": db_item.seed,
         "timestamp": db_item.timestamp.isoformat()  # convert datetime -> str
     }
+
+@app.post("/sessions/find")
+def find_sessions(payload: schemas.SessionFindRequest, db: Session = Depends(get_db)):
+
+    sessions = crud.find_sessions_by_params(
+        db=db,
+        num_rounds=payload.num_rounds,
+        local_epochs=payload.local_epochs,
+        lr=payload.lr,
+        seed=payload.seed,
+    )
+    print(sessions)
+    return [{"session_id": s.id} for s in sessions]
+
+@app.get("/sessions/{session_id}/submits")
+def get_session_submits(session_id: int, db: Session = Depends(get_db)):
+    submits = crud.get_submits_by_session(db=db, session_id=session_id)
+    # Trả về dữ liệu dưới dạng list các đối tượng ClientSubmitOut
+    return [schemas.ClientSubmitOut.from_orm(s) for s in submits]

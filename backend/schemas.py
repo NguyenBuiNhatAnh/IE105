@@ -1,4 +1,6 @@
+# schemas.py (Đã sửa)
 from pydantic import BaseModel
+from datetime import datetime # Thêm import này
 
 # Session
 class TrainingSessionCreate(BaseModel):
@@ -9,7 +11,8 @@ class TrainingSessionCreate(BaseModel):
 class TrainingSessionOut(TrainingSessionCreate):
     id: int
     class Config:
-        orm_mode = True
+        # SỬA lỗi Pydantic V2
+        from_attributes = True
 
 # Client submit
 class ClientSubmitCreate(BaseModel):
@@ -21,6 +24,14 @@ class ClientSubmitCreate(BaseModel):
 
 class ClientSubmitOut(ClientSubmitCreate):
     id: int
-    timestamp: str
+    # SỬA: Dùng datetime để khớp với models.py và cho phép serialize JSON
+    timestamp: datetime 
     class Config:
-        orm_mode = True
+        # SỬA lỗi Pydantic V2
+        from_attributes = True
+
+class SessionFindRequest(BaseModel):
+    num_rounds: int
+    local_epochs: int
+    lr: float
+    seed: int

@@ -186,4 +186,259 @@ function drawChart(clientId) {
     });
 }
 
+document.getElementById("find1").addEventListener("click", async () => {
+    const payload = {
+        num_rounds: Number(document.getElementById("num_round1").value),
+        local_epochs: Number(document.getElementById("local1").value),
+        lr: Number(document.getElementById("lr1").value),   // sửa learning_rate -> lr
+        seed: Number(document.getElementById("seed1").value)
+    };
 
+    console.log(payload);
+
+    const res = await fetch("http://127.0.0.1:8000/sessions/find", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    const sessions = await res.json();
+    console.log(sessions)
+
+    const select = document.getElementById("select1");
+    select.innerHTML = "";
+
+    sessions.forEach(s => {
+        const op = document.createElement("option");
+        op.value = s.session_id;
+        op.textContent = `Session ${s.session_id}`;
+        select.appendChild(op);
+    });
+});
+
+const compareCharts = {
+    cp1: null,
+    cp2: null,
+    cp3: null,
+    cp4: null,
+    cp5: null, 
+    cp6: null,
+    cp7: null,
+    cp8: null
+};
+
+function drawCompareChart(clientData, canvasId) {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const clientId = clientData[0].client_id;
+    const sessionId = clientData[0].session_id;
+
+    // Hủy biểu đồ cũ nếu có
+    if (compareCharts[canvasId]) {
+        compareCharts[canvasId].destroy();
+    }
+
+    const roundLabels = clientData.map(d => d.round_number);
+    const accuracyData = clientData.map(d => d.accuracy);
+
+    compareCharts[canvasId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: roundLabels,
+            datasets: [{
+                label: `Session ${sessionId} - Client ${clientId}`,
+                data: accuracyData,
+                // Tạo màu ngẫu nhiên cho biểu đồ
+                borderColor: '#' + Math.floor(Math.random() * 16777215).toString(16),
+                borderWidth: 2,
+                tension: 0.3,
+                fill: false,
+                pointRadius: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { title: { display: true, text: 'Round Number' } },
+                y: { title: { display: true, text: 'Accuracy' }, beginAtZero: true, suggestedMax: 1 }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Client ${clientId} Accuracy`
+                }
+            }
+        }
+    });
+}
+
+document.getElementById("find1").addEventListener("click", async () => {
+    const payload = {
+        num_rounds: Number(document.getElementById("num_round1").value),
+        local_epochs: Number(document.getElementById("local1").value),
+        lr: Number(document.getElementById("lr1").value),
+        seed: Number(document.getElementById("seed1").value)
+    };
+
+    console.log("[Find1] Payload:", payload);
+
+    const res = await fetch("http://127.0.0.1:8000/sessions/find", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    const sessions = await res.json();
+    console.log("[Find1] Sessions found:", sessions);
+
+    const select = document.getElementById("select1");
+    select.innerHTML = "";
+    select.disabled = (sessions.length === 0); // Vô hiệu hóa nếu không có kết quả
+
+    sessions.forEach(s => {
+        const op = document.createElement("option");
+        op.value = s.session_id;
+        op.textContent = `Session ${s.session_id}`;
+        select.appendChild(op);
+    });
+});
+
+document.getElementById("active1").addEventListener("click", async () => {
+    const select = document.getElementById("select1");
+    const sessionId = select.value;
+    
+    if (!sessionId) {
+        console.error("Vui lòng chọn một Session ID cho Object 1.");
+        return;
+    }
+
+    console.log(`[Object1 Active] Lấy dữ liệu cho Session ID: ${sessionId}`);
+
+    // 2. Gọi API backend
+    const res = await fetch(`http://127.0.0.1:8000/sessions/${sessionId}/submits`);
+    
+    if (!res.ok) {
+        console.error("Lỗi khi fetch dữ liệu submit Object 1:", await res.text());
+        return;
+    }
+    
+    const submits = await res.json();
+    
+    // 3. Nhóm dữ liệu theo client_id
+    const groupedData = submits.reduce((acc, submit) => {
+        const clientId = submit.client_id;
+        if (!acc[clientId]) {
+            acc[clientId] = [];
+        }
+        acc[clientId].push(submit);
+        return acc;
+    }, {});
+    
+    // 4. Vẽ biểu đồ cho tối đa 4 client (cp1, cp2, cp3, cp4)
+    const clientIds = Object.keys(groupedData).sort((a, b) => a - b);
+    const canvasIds = ["cp1", "cp2", "cp3", "cp4"];
+
+    clientIds.forEach((clientId, index) => {
+        if (index < canvasIds.length) {
+            drawCompareChart(groupedData[clientId], canvasIds[index]);
+        }
+    });
+
+    // 5. Xóa biểu đồ ở các canvas còn lại nếu có ít hơn 4 client
+    for (let i = clientIds.length; i < canvasIds.length; i++) {
+        const canvasId = canvasIds[i];
+         if (compareCharts[canvasId]) {
+            compareCharts[canvasId].destroy();
+            compareCharts[canvasId] = null;
+        }
+    }
+});
+
+
+// ------------------------------------------------------------------
+// --- LOGIC CHO OBJECT 2 ---
+// ------------------------------------------------------------------
+
+document.getElementById("find2").addEventListener("click", async () => {
+    // Lấy giá trị từ các trường nhập liệu của Object2
+    const payload = {
+        num_rounds: Number(document.getElementById("num_round2").value),
+        local_epochs: Number(document.getElementById("local2").value),
+        lr: Number(document.getElementById("lr2").value),
+        seed: Number(document.getElementById("seed2").value)
+    };
+
+    console.log("[Find2] Payload:", payload);
+
+    const res = await fetch("http://127.0.0.1:8000/sessions/find", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    const sessions = await res.json();
+    console.log("[Find2] Sessions found:", sessions);
+
+    // Đổ kết quả vào select box của Object2 (ID: select2)
+    const select = document.getElementById("select2");
+    select.innerHTML = "";
+    select.disabled = (sessions.length === 0); // Vô hiệu hóa nếu không có kết quả
+
+    sessions.forEach(s => {
+        const op = document.createElement("option");
+        op.value = s.session_id;
+        op.textContent = `Session ${s.session_id}`;
+        select.appendChild(op);
+    });
+});
+
+document.getElementById("active2").addEventListener("click", async () => {
+    const select = document.getElementById("select2");
+    const sessionId = select.value;
+    
+    if (!sessionId) {
+        console.error("Vui lòng chọn một Session ID cho Object 2.");
+        return;
+    }
+
+    console.log(`[Object2 Active] Lấy dữ liệu cho Session ID: ${sessionId}`);
+
+    // 2. Gọi API backend
+    const res = await fetch(`http://127.0.0.1:8000/sessions/${sessionId}/submits`);
+    
+    if (!res.ok) {
+        console.error("Lỗi khi fetch dữ liệu submit Object 2:", await res.text());
+        return;
+    }
+    
+    const submits = await res.json();
+    
+    // 3. Nhóm dữ liệu theo client_id
+    const groupedData = submits.reduce((acc, submit) => {
+        const clientId = submit.client_id;
+        if (!acc[clientId]) {
+            acc[clientId] = [];
+        }
+        acc[clientId].push(submit);
+        return acc;
+    }, {});
+    
+    // 4. Vẽ biểu đồ cho tối đa 4 client (cp5, cp6, cp7, cp8)
+    const clientIds = Object.keys(groupedData).sort((a, b) => a - b);
+    const canvasIds = ["cp5", "cp6", "cp7", "cp8"];
+
+    clientIds.forEach((clientId, index) => {
+        if (index < canvasIds.length) {
+            drawCompareChart(groupedData[clientId], canvasIds[index]);
+        }
+    });
+
+    // 5. Xóa biểu đồ ở các canvas còn lại nếu có ít hơn 4 client
+    for (let i = clientIds.length; i < canvasIds.length; i++) {
+        const canvasId = canvasIds[i];
+         if (compareCharts[canvasId]) {
+            compareCharts[canvasId].destroy();
+            compareCharts[canvasId] = null;
+        }
+    }
+});
