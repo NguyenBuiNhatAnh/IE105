@@ -4,7 +4,7 @@ import threading
 import subprocess
 import sys
 from queue import Queue, Empty
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Query
 from fastapi.responses import JSONResponse
 from fastapi import Path
 from typing import Dict
@@ -18,7 +18,7 @@ process_lock = threading.Lock()  # để tránh race khi start/stop
 
 
 @app.websocket("/ws/logs")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, num_rounds: int = Query(100), lr: float = Query(0.01), local_epochs: int = Query(1)):
     global server_process
 
     await websocket.accept()
@@ -34,9 +34,9 @@ async def websocket_endpoint(websocket: WebSocket):
             if server_process and server_process.poll() is None:
                 q.put("[SERVER_ALREADY_RUNNING]")
                 return
-
+            command = [python_exe, "server.py", "--num_rounds", str(num_rounds), "--lr", str(lr), "--local_epochs", str(local_epochs)]
             server_process = subprocess.Popen(
-                [python_exe, "server.py"],
+                command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -123,7 +123,8 @@ running_processes: Dict[int, subprocess.Popen] = {}
 @app.websocket("/ws/client/{client_id}/logs")
 async def websocket_endpoint(
     websocket: WebSocket, 
-    client_id: int = Path(..., description="ID của client để chạy")
+    client_id: int = Path(..., description="ID của client để chạy"),
+    seed: int = Query(42)
 ):
     await websocket.accept()
     q = Queue()
@@ -142,7 +143,7 @@ async def websocket_endpoint(
             
             # 2. Khởi tạo process mới
             process = subprocess.Popen(
-                [python_exe, "client.py", str(client_id)], # <-- THAY ĐỔI CHÍNH Ở ĐÂY
+                [python_exe, "client.py", str(client_id), str(seed)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -206,34 +207,42 @@ async def websocket_endpoint(
     finally:
         await websocket.close()
 
-accclient = []
-wsclient1acc = None
+accclient = {"client1": [], "client2": [], "client3": [], "client4": []}
+wsclientacc = {"client1": None, "client2": None, "client3": None, "client4": None,}
 
 @app.post("/client/metric")
 async def recieve(data: dict):
-    global accclient, wsclient1acc
-    accclient.append(data)
+    global accclient, wsclientacc
+    client_id = f"client{data.get('client_id')}"  # client gửi kèm ID
+    if client_id in accclient:
+        accclient[client_id].append(data)
 
     # Nếu WebSocket đang kết nối thì gửi dữ liệu
-    if wsclient1acc is not None:
+    ws = wsclientacc.get(client_id)
+    if ws is not None:
         try:
-            await wsclient1acc.send_text(json.dumps(data))
+            await ws.send_text(json.dumps(accclient[client_id]))
         except:
-            wsclient1acc = None  # reset nếu WS đóng
+            wsclientacc[client_id] = None  # reset nếu WS đóng
 
     return {"status": "ok"}
 
 
-@app.websocket("/ws/client/acc")
-async def sendacc(websocket: WebSocket):
-    global wsclient1acc
+@app.websocket("/ws/{client_id}/acc")
+async def sendacc(websocket: WebSocket, client_id: str):
+    global wsclientacc
+    if client_id not in wsclientacc:
+        await websocket.close()
+        return
+
     await websocket.accept()
-    wsclient1acc = websocket
-    print("WebSocket Client 1 connected")
+    wsclientacc[client_id] = websocket
+    print(f"WebSocket {client_id} connected")
 
     try:
         while True:
             await websocket.receive_text()  # giữ kết nối
     except:
-        wsclient1acc = None
-        print("WebSocket Client 1 disconnected")
+        wsclientacc[client_id] = None
+        print(f"WebSocket {client_id} disconnected")
+

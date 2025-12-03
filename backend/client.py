@@ -7,12 +7,13 @@ from task import SimpleCNN, ImprovedCNN, load_data, train as train_fn, test as t
 import requests
 
 class FlowerClient(fl.client.NumPyClient):
-    def __init__(self, partition_id):
+    def __init__(self, partition_id, randomseed):
         self.partition_id = partition_id
         self.model = SimpleCNN()
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model.to(self.device)
-        self.trainloader, self.valloader = load_data(partition_id)
+        self.trainloader, self.valloader = load_data(partition_id, randomseed)
+        self.randomseed = randomseed
 
     def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
@@ -37,13 +38,14 @@ class FlowerClient(fl.client.NumPyClient):
         loss, acc = test_fn(self.model, self.valloader, self.device)
         round_num = config.get("server_round", "Unknown")
 
-        print(f"[Client {self.partition_id}] Round {round_num} - Evaluation - Loss: {loss:.4f}, Accuracy: {acc:.2f}%", flush=True)
+        print(f"[Client {self.partition_id}] Random Seed: {self.randomseed} Round {round_num} - Evaluation - Loss: {loss:.4f}, Accuracy: {acc:.2f}%", flush=True)
 
-        if(self.partition_id == 1):
+        if self.partition_id in [1,2,3,4]:
             try:
                 requests.post(
                     "http://localhost:8000/client/metric",
                     json={
+                        "client_id": self.partition_id,
                         "round": round_num,
                         "acc": float(acc)
                     }
@@ -56,4 +58,5 @@ class FlowerClient(fl.client.NumPyClient):
 
 if __name__ == "__main__":
     partition_id = int(sys.argv[1]) if len(sys.argv) > 1 else 1
-    fl.client.start_numpy_client(server_address="localhost:8080", client=FlowerClient(partition_id))
+    randomseed = int(sys.argv[2]) if len(sys.argv) > 2 else 0
+    fl.client.start_numpy_client(server_address="localhost:8080", client=FlowerClient(partition_id, randomseed))

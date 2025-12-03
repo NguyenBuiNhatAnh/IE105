@@ -120,7 +120,7 @@ class MappedDataset(torch.utils.data.Dataset):
         return x, y
 
 
-def load_data(id):
+def load_data(id, randomseed):
 
     transform = transforms.Compose([
     transforms.Grayscale(),
@@ -145,7 +145,7 @@ def load_data(id):
     train_size = int(train_ratio * size)
     test_size = size - train_size
 
-    generator = torch.Generator().manual_seed(42)
+    generator = torch.Generator().manual_seed(randomseed)
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size], generator=generator)
 
     train_dataset, test_dataset = mappingLable(id, train_dataset, test_dataset)
