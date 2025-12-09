@@ -8,9 +8,9 @@ function startServer() {
     const log = document.getElementById("server-log"); // Đã cập nhật ID div log
     log.textContent += "\n[SERVER START] Connecting...\n";
 
-    // Đảm bảo đóng kết nối cũ nếu có
-    if (serverWs && serverWs.readyState !== WebSocket.CLOSED) {
-        serverWs.close();
+    if (serverWs) {
+        log.textContent += "\nSERVER ALREADY RUNNING\n";
+        return;
     }
 
     const numround = document.getElementById("num_round").value;
@@ -34,10 +34,12 @@ function startServer() {
 
     serverWs.onerror = () => {
         log.textContent += "[SERVER WebSocket ERROR]\n";
+        serverWs = null;
     };
 
     serverWs.onclose = () => {
         log.textContent += "[SERVER WebSocket CLOSED]\n";
+        serverWs = null
     };
 }
 
@@ -55,6 +57,7 @@ function stopServer() {
             // nếu websocket còn mở thì đóng lại
             if (serverWs && serverWs.readyState === WebSocket.OPEN) {
                 serverWs.close();
+                serverWs = null
             }
         });
 }
@@ -78,7 +81,7 @@ function startClient(clientId) {
 
     // 1. Kiểm tra nếu Client này đã có kết nối đang mở
     if (clientWs[clientId] && clientWs[clientId].readyState === WebSocket.OPEN) {
-        clientLogDiv.textContent += `[CLIENT ${clientId}] Đã có kết nối đang hoạt động.\n`;
+        clientLogDiv.textContent += `[CLIENT ${clientId}] ALREADY RUNNING \n`;
         return;
     }
 
@@ -112,6 +115,31 @@ function startClient(clientId) {
         delete clientWs[clientId];
     };
 }
+
+function stopClient(clientId) {
+    const logDiv = document.getElementById(`client-log-${clientId}`);
+
+    logDiv.textContent += `\n[SEND STOP REQUEST] Stopping client ${clientId}...\n`;
+
+    fetch(`http://localhost:8000/stopClient/${clientId}`, {
+        method: "POST"
+    })
+        .then(res => res.json())
+        .then(data => {
+            logDiv.textContent += `[CLIENT ${clientId} STOP] ${data.status}\n`;
+
+            // Nếu WebSocket đang mở thì đóng
+            if (clientWs[clientId] && clientWs[clientId].readyState === WebSocket.OPEN) {
+                clientWs[clientId].close();
+                delete clientWs[clientId];
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            logDiv.textContent += `[CLIENT ${clientId} ERROR] Không thể gửi request stop.\n`;
+        });
+}
+
 
 
 const clientAcc = {

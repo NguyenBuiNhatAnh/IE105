@@ -220,6 +220,29 @@ async def websocket_endpoint(
     finally:
         await websocket.close()
 
+@app.post("/stopClient/{client_id}")
+async def stopClient(client_id: int = Path(..., description="ID của client để chạy")):
+    with process_lock:
+        process = running_processes.get(client_id)
+
+        if process and process.poll() is None:
+            try:
+                process.terminate()
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+
+                del running_processes[client_id]   # ⚠️ Quan trọng
+                return JSONResponse({"status": "terminated"})
+
+            except Exception as e:
+                return JSONResponse({"status": "error", "detail": str(e)}, status_code=500)
+
+        else:
+            return JSONResponse({"status": "not running"})
+
+
 accclient = {"client1": [], "client2": [], "client3": [], "client4": []}
 wsclientacc = {"client1": None, "client2": None, "client3": None, "client4": None,}
 
